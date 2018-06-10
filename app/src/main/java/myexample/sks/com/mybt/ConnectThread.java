@@ -1,5 +1,6 @@
 package myexample.sks.com.mybt;
 
+import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.os.Bundle;
@@ -20,19 +21,23 @@ public class ConnectThread extends Thread {
     private final OutputStream mmOutStream;
     private byte[] mmBuffer; // mmBuffer store for the stream
     private Handler mHandler;
+    private BluetoothAdapter mBluetoothAdapter;
+    private Boolean BTConnected = false;
 
-    public ConnectThread(BluetoothDevice device) {
+
+    public ConnectThread(BluetoothDevice device, BluetoothAdapter bluetoothAdapter) {
         InputStream tmpIn = null;
         OutputStream tmpOut = null;
         // Use a temporary object that is later assigned to mmSocket
         // because mmSocket is final.
         BluetoothSocket tmp = null;
+        this.mBluetoothAdapter = bluetoothAdapter;
         mmDevice = device;
 
         try {
             // Get a BluetoothSocket to connect with the given BluetoothDevice.
             // MY_UUID is the app's UUID string, also used in the server code.
-            tmp = device.createRfcommSocketToServiceRecord(MY_UUID);
+            tmp = device.createRfcommSocketToServiceRecord(MyBTConstant.MY_UUID);
         } catch (IOException e) {
             Log.e(TAG, "Socket's create() method failed", e);
         }
@@ -63,14 +68,18 @@ public class ConnectThread extends Thread {
             // Connect to the remote device through the socket. This call blocks
             // until it succeeds or throws an exception.
             mmSocket.connect();
+            BTConnected = true;
         } catch (IOException connectException) {
+            BTConnected = false;
             // Unable to connect; close the socket and return.
-            try {
-                mmSocket.close();
-            } catch (IOException closeException) {
-                Log.e(TAG, "Could not close the client socket", closeException);
-            }
+            Log.e(TAG, "Could not close the client socket", connectException);
             return;
+        }
+
+        try {
+            mmSocket.close();
+        } catch (IOException closeException) {
+            Log.e(TAG, "Could not close the client socket", closeException);
         }
 
         // The connection attempt succeeded. Perform work associated with
@@ -89,7 +98,7 @@ public class ConnectThread extends Thread {
                 numBytes = mmInStream.read(mmBuffer);
                 // Send the obtained bytes to the UI activity.
                 Message readMsg = mHandler.obtainMessage(
-                        MessageConstants.MESSAGE_READ, numBytes, -1,
+                        MyBTConstant.MESSAGE_READ, numBytes, -1,
                         mmBuffer);
                 readMsg.sendToTarget();
             } catch (IOException e) {
@@ -109,16 +118,6 @@ public class ConnectThread extends Thread {
     }
 
 
-    // Defines several constants used when transmitting messages between the
-    // service and the UI.
-    private interface MessageConstants {
-        public static final int MESSAGE_READ = 0;
-        public static final int MESSAGE_WRITE = 1;
-        public static final int MESSAGE_TOAST = 2;
-
-        // ... (Add other message types here as needed.)
-    }
-
     // Call this from the main activity to send data to the remote device.
     public void write(byte[] bytes) {
         try {
@@ -126,14 +125,14 @@ public class ConnectThread extends Thread {
 
             // Share the sent message with the UI activity.
             Message writtenMsg = mHandler.obtainMessage(
-                    MessageConstants.MESSAGE_WRITE, -1, -1, mmBuffer);
+                    MyBTConstant.MESSAGE_WRITE, -1, -1, mmBuffer);
             writtenMsg.sendToTarget();
         } catch (IOException e) {
             Log.e(TAG, "Error occurred when sending data", e);
 
             // Send a failure message back to the activity.
             Message writeErrorMsg =
-                    mHandler.obtainMessage(MessageConstants.MESSAGE_TOAST);
+                    mHandler.obtainMessage(MyBTConstant.MESSAGE_TOAST);
             Bundle bundle = new Bundle();
             bundle.putString("toast",
                     "Couldn't send data to the other device");

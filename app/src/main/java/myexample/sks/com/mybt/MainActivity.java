@@ -1,6 +1,5 @@
 package myexample.sks.com.mybt;
 
-import android.app.ProgressDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.bluetooth.BluetoothAdapter;
@@ -13,6 +12,7 @@ import android.content.IntentFilter;
 import android.support.v7.app.AlertDialog;
 import android.util.Log;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
@@ -33,7 +33,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private Button scanButton, PairedDeviceButton;
     BluetoothAdapter mBluetoothAdapter;
     Set<BluetoothDevice> pairedDevices;
-    ListView mPairedDevice;
+    ListView mBTDeviceListView;
     ArrayList<String>mDiscoveredDeviceList;
     ArrayList<String>mDiscoveredDeviceMACList;
     ArrayAdapter<String> deviceDiscoverableAdapter;
@@ -167,7 +167,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 Log.d(TAG,"discovery Finished Size: "+mDiscoveredDeviceList.size());
                 if(mDiscoveredDeviceList.size() != 0)
                 {
-                    mPairedDevice.invalidateViews();
+                    mBTDeviceListView.invalidateViews();
                     showDiscoveredDeviceList(mDiscoveredDeviceList);
                     deviceDiscoverableAdapter.notifyDataSetChanged();
                 }
@@ -183,7 +183,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void initRes() {
         scanButton = (Button)findViewById(R.id.button);
         PairedDeviceButton = (Button)findViewById(R.id.show_paired_device_btn);
-        mPairedDevice = (ListView)findViewById(R.id.list_item);
+        mBTDeviceListView = (ListView)findViewById(R.id.list_item);
 
         scanButton.setOnClickListener(MainActivity.this);
         PairedDeviceButton.setOnClickListener(MainActivity.this);
@@ -192,6 +192,24 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mDiscoveredDeviceMACList = new ArrayList<>();
         pb = (ProgressBar)findViewById(R.id.progressBar1);
         scanningText = (TextView)findViewById(R.id.scanning_txt);
+
+        mBTDeviceListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> adapterView, View view, int position, long id) {
+
+                BluetoothDevice device =
+                        (BluetoothDevice) adapterView.getItemAtPosition(position);
+                Toast.makeText(MainActivity.this,
+                        "Name: " + device.getName() + "\n"
+                                + "Address: " + device.getAddress() + "\n"
+                                + "BondState: " + device.getBondState() + "\n"
+                                + "BluetoothClass: " + device.getBluetoothClass() + "\n"
+                                + "Class: " + device.getClass(),
+                        Toast.LENGTH_LONG).show();
+                connectToDevice(device, false);
+
+            }
+        });
     }
 
     private void showPairedDeviceList(Set<BluetoothDevice> pairedList)
@@ -213,7 +231,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
 
             // Assign adapter to ListView
-            mPairedDevice.setAdapter(mPairedDeviceAdapter);
+            mBTDeviceListView.setAdapter(mPairedDeviceAdapter);
         }
 
 
@@ -225,7 +243,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             deviceDiscoverableAdapter = new ArrayAdapter<String>(this,
                     android.R.layout.simple_list_item_1, android.R.id.text1, mDeviceList);
             // Assign adapter to ListView
-            mPairedDevice.setAdapter(deviceDiscoverableAdapter);
+            mBTDeviceListView.setAdapter(deviceDiscoverableAdapter);
             //deviceDiscoverableAdapter.notifyDataSetChanged();
         }
 
@@ -244,7 +262,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 scanningText.setVisibility(View.VISIBLE);
                 mFirstTime = false;
                 scanButton.setText("Stop Scan");
-                mPairedDevice.setVisibility(View.VISIBLE);
+                mBTDeviceListView.setVisibility(View.VISIBLE);
                 mBluetoothAdapter.startDiscovery();
                 showDiscoveredDeviceList(mDiscoveredDeviceList);
             }
@@ -253,14 +271,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 scanningText.setVisibility(View.GONE);
                 mFirstTime = true;
                 scanButton.setText("Start Scan");
-                mPairedDevice.setVisibility(View.GONE);
+                mBTDeviceListView.setVisibility(View.GONE);
                 mBluetoothAdapter.cancelDiscovery();
 
             }
 
         }else if(view == PairedDeviceButton)
         {
-            mPairedDevice.setVisibility(View.VISIBLE);
+            mBTDeviceListView.setVisibility(View.VISIBLE);
             showPairedDeviceList(pairedDevices);
         }
 
@@ -280,6 +298,26 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     }
                 });
         mDialog.show();
+    }
+
+
+    public void connectToAddress(String address, boolean insecureConnection) {
+        BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
+        connectToDevice(device, insecureConnection);
+    }
+
+    public void connectToName(String name, boolean insecureConnection) {
+        for (BluetoothDevice blueDevice : mBluetoothAdapter.getBondedDevices()) {
+            if (blueDevice.getName().equals(name)) {
+                connectToDevice(blueDevice, insecureConnection);
+                return;
+            }
+        }
+    }
+
+
+    public void connectToDevice(BluetoothDevice device, boolean insecureConnection){
+        new ConnectThread(device, mBluetoothAdapter).start();
     }
 
 
