@@ -1,5 +1,6 @@
 package myexample.sks.com.mybt;
 
+import android.app.ProgressDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.bluetooth.BluetoothAdapter;
@@ -15,6 +16,8 @@ import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
+import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
@@ -35,6 +38,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     ArrayList<String>mDiscoveredDeviceMACList;
     ArrayAdapter<String> deviceDiscoverableAdapter;
     ArrayAdapter<String> mPairedDeviceAdapter;
+    private ProgressBar pb;
+    private TextView scanningText;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -96,10 +101,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             Toast.makeText(this, "BT turned on successfully", Toast.LENGTH_SHORT).show();
         }else if(REQUEST_ENABLE_BT == requestCode && resultCode == RESULT_CANCELED){
             Toast.makeText(this, "BT turn on decline by user", Toast.LENGTH_SHORT).show();
+            finish();
         }else if(REQUEST_DISCOVER_BT == requestCode && VISIBLE_TIME == RESULT_OK){
             Toast.makeText(this, "Device become visible", Toast.LENGTH_SHORT).show();
             //scanning device and show in list
-            mFirstTime = false;
             showDiscoveredDeviceList(mDiscoveredDeviceList);
         }else if(REQUEST_DISCOVER_BT == requestCode && resultCode == RESULT_CANCELED){
             Toast.makeText(this, "decline by user", Toast.LENGTH_SHORT).show();
@@ -141,7 +146,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 Log.d(TAG,"BTDiscoverReceiver "+action);
             if(BluetoothAdapter.ACTION_DISCOVERY_STARTED.equals(action)){
                 Log.d(TAG,"BTDiscoverReceiver Scanning started");
-                Toast.makeText(context, "Scanning Started...", Toast.LENGTH_SHORT).show();
             }
             //When discovery finds a device
             else if (BluetoothDevice.ACTION_FOUND.equals(action))
@@ -156,6 +160,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             }
             else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action))
             {
+                mFirstTime = true;
+                scanButton.setText("Start Scan");
+                pb.setVisibility(View.GONE);
+                scanningText.setVisibility(View.GONE);
                 Log.d(TAG,"discovery Finished Size: "+mDiscoveredDeviceList.size());
                 if(mDiscoveredDeviceList.size() != 0)
                 {
@@ -165,7 +173,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 }
                 else
                 {
-                    Toast.makeText(MainActivity.this, "No New Devices Found", Toast.LENGTH_LONG).show();
+                    Toast.makeText(MainActivity.this, "No Devices Found", Toast.LENGTH_LONG).show();
                 }
             }
         }
@@ -182,6 +190,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         mDiscoveredDeviceList = new ArrayList<>();
         mDiscoveredDeviceMACList = new ArrayList<>();
+        pb = (ProgressBar)findViewById(R.id.progressBar1);
+        scanningText = (TextView)findViewById(R.id.scanning_txt);
     }
 
     private void showPairedDeviceList(Set<BluetoothDevice> pairedList)
@@ -227,9 +237,26 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         if(view == scanButton)
         {
-            mPairedDevice.setVisibility(View.VISIBLE);
-            mBluetoothAdapter.startDiscovery();
-            showDiscoveredDeviceList(mDiscoveredDeviceList);
+            if(mFirstTime){
+                if(deviceDiscoverableAdapter != null && !deviceDiscoverableAdapter.isEmpty())
+                    deviceDiscoverableAdapter.clear();
+                pb.setVisibility(View.VISIBLE);
+                scanningText.setVisibility(View.VISIBLE);
+                mFirstTime = false;
+                scanButton.setText("Stop Scan");
+                mPairedDevice.setVisibility(View.VISIBLE);
+                mBluetoothAdapter.startDiscovery();
+                showDiscoveredDeviceList(mDiscoveredDeviceList);
+            }
+            else{
+                pb.setVisibility(View.GONE);
+                scanningText.setVisibility(View.GONE);
+                mFirstTime = true;
+                scanButton.setText("Start Scan");
+                mPairedDevice.setVisibility(View.GONE);
+                mBluetoothAdapter.cancelDiscovery();
+
+            }
 
         }else if(view == PairedDeviceButton)
         {
