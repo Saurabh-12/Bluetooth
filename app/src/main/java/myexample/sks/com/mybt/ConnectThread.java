@@ -22,7 +22,7 @@ public class ConnectThread extends Thread {
     private byte[] mmBuffer; // mmBuffer store for the stream
     private Handler mHandler;
     private BluetoothAdapter mBluetoothAdapter;
-    private Boolean BTConnected = false;
+    public static Boolean BTConnected = false;
 
 
     public ConnectThread(BluetoothDevice device, BluetoothAdapter bluetoothAdapter) {

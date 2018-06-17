@@ -197,16 +197,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             @Override
             public void onItemClick(AdapterView<?> adapterView, View view, int position, long id) {
 
-                BluetoothDevice device =
-                        (BluetoothDevice) adapterView.getItemAtPosition(position);
-                Toast.makeText(MainActivity.this,
-                        "Name: " + device.getName() + "\n"
-                                + "Address: " + device.getAddress() + "\n"
-                                + "BondState: " + device.getBondState() + "\n"
-                                + "BluetoothClass: " + device.getBluetoothClass() + "\n"
-                                + "Class: " + device.getClass(),
-                        Toast.LENGTH_LONG).show();
-                connectToDevice(device, false);
+                //String device = (String)adapterView.getItemAtPosition(position);
+                String device  = mDiscoveredDeviceMACList.get(position).toString();
+                connectToAddress(device, false);
 
             }
         });
@@ -215,7 +208,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void showPairedDeviceList(Set<BluetoothDevice> pairedList)
     {
         ArrayList<String> deviceNameList = new ArrayList<>();
-        ArrayList<String> deviceMACList = new ArrayList<>();
 
         if (pairedList.size() > 0) {
             // There are paired devices. Get the name and address of each paired device.
@@ -223,7 +215,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 String deviceName = device.getName();
                 deviceNameList.add(deviceName);
                 String deviceHardwareAddress = device.getAddress(); // MAC address
-                deviceMACList.add(deviceHardwareAddress);
+                mDiscoveredDeviceMACList.add(deviceHardwareAddress);
             }
 
             mPairedDeviceAdapter = new ArrayAdapter<String>(this,
@@ -303,6 +295,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     public void connectToAddress(String address, boolean insecureConnection) {
         BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
+        Toast.makeText(MainActivity.this,
+                "Name: " + device.getName() + "\n"
+                        + "Address: " + device.getAddress() + "\n"
+                        + "BondState: " + device.getBondState() + "\n"
+                        + "BluetoothClass: " + device.getBluetoothClass() + "\n"
+                        + "Class: " + device.getClass(),
+                Toast.LENGTH_LONG).show();
         connectToDevice(device, insecureConnection);
     }
 
@@ -318,6 +317,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     public void connectToDevice(BluetoothDevice device, boolean insecureConnection){
         new ConnectThread(device, mBluetoothAdapter).start();
+
+        if(ConnectThread.BTConnected)
+            Toast.makeText(this, "BT device connected!!!", Toast.LENGTH_SHORT).show();
     }
 
 
