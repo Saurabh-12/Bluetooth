@@ -12,4 +12,5 @@
     <!-- Scan -->
     <string name="action_scan">SCAN</string>
     <string name="action_stop">STOP</string>
+
 </resources>
