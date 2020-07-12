@@ -5,12 +5,16 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.le.AdvertiseCallback;
 import android.bluetooth.le.AdvertiseData;
 import android.bluetooth.le.AdvertiseSettings;
+import android.bluetooth.le.AdvertisingSet;
+import android.bluetooth.le.AdvertisingSetCallback;
+import android.bluetooth.le.AdvertisingSetParameters;
 import android.bluetooth.le.BluetoothLeAdvertiser;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.ParcelUuid;
@@ -42,8 +46,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private BluetoothLeScanner mBluetoothLeScanner;
     private BluetoothLeAdvertiser mBluetoothAdvertiser;
     private AdvertiseCallback advertisingCallback;
+    private AdvertisingSetCallback advertisingSetCallback;
+    private AdvertiseSettings advertiseSettings;
+    private AdvertisingSetParameters advertisingSetParameters;
     private Handler mHandler = new Handler();
-
+    private  static final byte[]   SERVICE_UUID_BYTE = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+            0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F};
     int power = 0;
     int mode = 0;
 
@@ -144,25 +152,97 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void advertise() {
         mBluetoothAdvertiser = BluetoothAdapter.getDefaultAdapter().getBluetoothLeAdvertiser();
 
-        AdvertiseSettings settings = new AdvertiseSettings.Builder()
-                .setAdvertiseMode(mode)
-                .setTxPowerLevel(power)
-                .setTimeout(3*60*1000)
-                .setConnectable(false)
-                .build();
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            int txPowerLevel = -7;
+            switch(power) {
+                case 0:
+                    txPowerLevel = -21;
+                    break;
+                case 1:
+                    txPowerLevel = -15;
+                    break;
+                case 2:
+                    txPowerLevel = -7;
+                    break;
+                case 3:
+                    txPowerLevel = 1;
+                    break;
+            }
+            advertisingSetParameters = new AdvertisingSetParameters.Builder()
+                    .setLegacyMode(true)
+                    .setConnectable(false)
+                    .setScannable(false)
+                    .setTxPowerLevel(txPowerLevel)
+                    .build();
+        } else {
+            advertiseSettings = new AdvertiseSettings.Builder()
+                    .setAdvertiseMode(mode)
+                    .setTxPowerLevel(power)
+                    .setTimeout(3 * 60 * 1000)
+                    .setConnectable(false)
+                    .build();
+        }
+        byte[] advertisingData = new byte[23];
+        advertisingData[0] = 0x02;
+        advertisingData[1] = 0x15;
 
-        ParcelUuid pUuid = new ParcelUuid( UUID.fromString( getString( R.string.ble_uuid ) ) );
+        System.arraycopy(SERVICE_UUID_BYTE, 0, advertisingData, 2, SERVICE_UUID_BYTE.length);
+        int major = 0;
+        int minor = 1;
+        advertisingData[18] = (byte) (major >> 8 & 0xFF);
+        advertisingData[19] = (byte) (major & 0xFF);
+        advertisingData[20] = (byte) (minor >> 8 & 0xFF);
+        advertisingData[21] = (byte) (minor & 0xFF);
+        /* Tx Power */
+        advertisingData[22] = (byte)0xFF;
 
-        AdvertiseData data = new AdvertiseData.Builder()
-                .setIncludeDeviceName( true )
-                //.addServiceUuid( pUuid )
-                .addServiceData( pUuid, "SK".getBytes(Charset.forName("UTF-8") ) )
-                .build();
+        final AdvertiseData.Builder advertiseDataBuilder = new AdvertiseData.Builder();
+        // advertiseDataBuilder.setIncludeDeviceName(true);
+        advertiseDataBuilder.addManufacturerData(0x004C, advertisingData);
+        final AdvertiseData data = advertiseDataBuilder.build();
+        //ParcelUuid pUuid = new ParcelUuid( UUID.fromString( getString( R.string.ble_uuid ) ) );
 
+            /*AdvertiseData data = new AdvertiseData.Builder()
+                    .setIncludeDeviceName( true )
+                    //.addServiceUuid( pUuid )
+                    .addServiceData( pUuid, "SK".getBytes(Charset.forName("UTF-8") ) )
+                    .build();*/
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            advertisingSetCallback = new AdvertisingSetCallback() {
+                @Override
+                public void onAdvertisingSetStarted(AdvertisingSet advertisingSet, int txPower, int status) {
+                    if (status == ADVERTISE_SUCCESS) {
+                        Log.e("saurabh_BLE", "Advertising onAdvertisingSetStarted: getTxPowerLevel "
+                                + txPower);
+                        mText.setText("Advertising Start: Success \n"+
+                                "Advertising PowerLevel: "+txPower+"\n");
+                    }
+                }
+
+                public void onAdvertisingEnabled(AdvertisingSet advertisingSet, boolean enable, int status) {
+                    if (status == ADVERTISE_SUCCESS) {
+                        Log.e("saurabh_BLE", "Advertising onAdvertisingEnabled: enable "
+                                + enable);
+                    }
+                }
+
+                public void onAdvertisingDataSet(AdvertisingSet advertisingSet, int status) {
+                    if (status == ADVERTISE_SUCCESS) {
+                        Log.e("saurabh_BLE", "Advertising onAdvertisingDataSet ");
+
+                    }
+                }
+
+                public void onAdvertisingSetStopped(AdvertisingSet advertisingSet) {
+                    Log.e("saurabh_BLE", "Advertising onAdvertisingSetStopped ");
+                    mAdvertiseButton.setEnabled(true);
+                }
+            };
+        }
         advertisingCallback = new AdvertiseCallback() {
             @Override
             public void onStartSuccess(AdvertiseSettings settingsInEffect) {
-                Log.e( "ECRT_BLE", "Advertising onStartSuccess: getTxPowerLevel "
+                Log.e( "saurabh_BLE", "Advertising onStartSuccess: getTxPowerLevel "
                         + settingsInEffect.getTxPowerLevel() );
                 String modes = "";
                 if(2 == settingsInEffect.getMode()){
@@ -194,13 +274,76 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
             @Override
             public void onStartFailure(int errorCode) {
-                Log.e( "ECRT_BLE", "Advertising onStartFailure: " + errorCode );
+                mAdvertiseButton.setEnabled(true);
+                Log.e( "saurabh_BLE", "Advertising onStartFailure: " + errorCode );
                 mText.setText("Advertising Start Failure ErrorCode: "+errorCode);
                 super.onStartFailure(errorCode);
             }
         };
 
-        mBluetoothAdvertiser.startAdvertising( settings, data, advertisingCallback );
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            mBluetoothAdvertiser.startAdvertisingSet(advertisingSetParameters, data, null, null, null, advertisingSetCallback);
+        } else {
+            mBluetoothAdvertiser.startAdvertising(advertiseSettings, data, advertisingCallback);
+        }
+
+/*        AdvertiseSettings settings = new AdvertiseSettings.Builder()
+                .setAdvertiseMode(mode)
+                .setTxPowerLevel(power)
+                .setTimeout(3*60*1000)
+                .setConnectable(false)
+                .build();
+
+        ParcelUuid pUuid = new ParcelUuid( UUID.fromString( getString( R.string.ble_uuid ) ) );
+
+        AdvertiseData data = new AdvertiseData.Builder()
+                .setIncludeDeviceName( true )
+                //.addServiceUuid( pUuid )
+                .addServiceData( pUuid, "SK".getBytes(Charset.forName("UTF-8") ) )
+                .build();
+
+        advertisingCallback = new AdvertiseCallback() {
+            @Override
+            public void onStartSuccess(AdvertiseSettings settingsInEffect) {
+                Log.e( "saurabh_BLE", "Advertising onStartSuccess: getTxPowerLevel "
+                        + settingsInEffect.getTxPowerLevel() );
+                String modes = "";
+                if(2 == settingsInEffect.getMode()){
+                    modes = "LOW LATENCY Mode";
+                }else if(1 == settingsInEffect.getMode()) {
+                    modes = "BALANCED Mode";
+                }else if(0 == settingsInEffect.getMode()) {
+                    modes = "LOW POWER Mode";
+                }
+
+                String power = "";
+                if(3 == settingsInEffect.getTxPowerLevel()){
+                    power = "TX_POWER_HIGH";
+                }else if(2 == settingsInEffect.getTxPowerLevel()) {
+                    power = "TX_POWER_MEDIUM";
+                }else if(1 == settingsInEffect.getTxPowerLevel()) {
+                    power = "TX_POWER_LOW ";
+                } else if(0 == settingsInEffect.getTxPowerLevel()) {
+                    power = "TX_POWER_ULTRA_LOW";
+                }
+
+                mText.setText("Advertising Start: Success \n"+
+                        "Advertising PowerLevel: "+power+"\n"+
+                        "Advertising Mode: "+modes+" \n"+
+                        "Advertising Timeout(ms): "+settingsInEffect.getTimeout()+"\n"+
+                        "Advertising Connectable: "+settingsInEffect.isConnectable());
+                super.onStartSuccess(settingsInEffect);
+            }
+
+            @Override
+            public void onStartFailure(int errorCode) {
+                Log.e( "saurabh_BLE", "Advertising onStartFailure: " + errorCode );
+                mText.setText("Advertising Start Failure ErrorCode: "+errorCode);
+                super.onStartFailure(errorCode);
+            }
+        };
+
+        mBluetoothAdvertiser.startAdvertising( settings, data, advertisingCallback );*/
     }
 
     @Override
@@ -210,8 +353,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         } else if( v.getId() == R.id.advertise_btn ) {
             advertise();
         } else if (v.getId() == R.id.advertise_stop_btn) {
-            Log.d("ecrt", "Stop called");
-            stopAdvertising(advertisingCallback);
+            Log.d("Saurabh", "Stop called");
+            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && mBluetoothAdvertiser != null) {
+                mBluetoothAdvertiser.stopAdvertisingSet(advertisingSetCallback);
+                mText.setText("Advertise Stopped");
+            }else {
+                stopAdvertising(advertisingCallback);
+            }
         }
     }
 
@@ -219,7 +367,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (mBluetoothAdvertiser != null) {
             mBluetoothAdvertiser.stopAdvertising(advertiseCallback);
             mText.setText("Advertise Stopped");
-            Log.e( "ECRT_BLE", "stopAdvertising ");
+            Log.e( "saurabh_BLE", "stopAdvertising ");
         }
     }
 
@@ -228,13 +376,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if(parent.getId() == R.id.spinner_tx_power)
         {
             power = position;
-            Log.d("ECRT_BLE", "power position: "+position+" ("+parent.getItemAtPosition(position).toString()+")");
+            Log.d("saurabh_BLE", "power position: "+position+" ("+parent.getItemAtPosition(position).toString()+")");
             Toast.makeText(MainActivity.this, "Tx Power: "+position,Toast.LENGTH_SHORT).show();
         }
         else if(parent.getId() == R.id.spinner_tx_mode)
         {
             mode = position;
-            Log.d("ECRT_BLE", "Mode position: "+position+" ("+parent.getItemAtPosition(position).toString()+")");
+            Log.d("saurabh_BLE", "Mode position: "+position+" ("+parent.getItemAtPosition(position).toString()+")");
             Toast.makeText(MainActivity.this, "Tx Mode: "+position,Toast.LENGTH_SHORT).show();
         }
     }
