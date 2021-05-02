@@ -125,6 +125,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             mStopButton.setEnabled(false);*/
             mText.setText("Multiple advertisement not supported");
         }
+
+        mBluetoothAdvertiser = BluetoothAdapter.getDefaultAdapter().getBluetoothLeAdvertiser();
     }
 
     private void discover() {
@@ -150,8 +152,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void advertise() {
-        mBluetoothAdvertiser = BluetoothAdapter.getDefaultAdapter().getBluetoothLeAdvertiser();
-
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             int txPowerLevel = -7;
             switch(power) {
@@ -281,10 +281,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             }
         };
 
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            mBluetoothAdvertiser.startAdvertisingSet(advertisingSetParameters, data, null, null, null, advertisingSetCallback);
-        } else {
-            mBluetoothAdvertiser.startAdvertising(advertiseSettings, data, advertisingCallback);
+        if(mBluetoothAdvertiser != null){
+            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                mBluetoothAdvertiser.startAdvertisingSet(advertisingSetParameters, data,
+                        null, null, null, advertisingSetCallback);
+            } else {
+                mBluetoothAdvertiser.startAdvertising(advertiseSettings, data, advertisingCallback);
+            }
         }
 
 /*        AdvertiseSettings settings = new AdvertiseSettings.Builder()
